@@ -1,20 +1,20 @@
-    import asyncio
-    import json
-    import logging
-    import os
-    import pickle
-    import platform
-    import re
-    import shutil
-    import subprocess
-    import sys
-    import time
-    from collections import defaultdict, deque
-    from datetime import datetime, timedelta, timezone
-    from pathlib import Path
+import asyncio
+import json
+import logging
+import os
+import pickle
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import time
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-    import discord
-    import requests
+import discord
+import requests
 
 
 try:
@@ -36,7 +36,18 @@ try:
 except ImportError:
     GOOGLE_AVAILABLE = False
 
-# Windows registry (Windows only)
+
+try:
+    import pyautogui
+    import PIL.Image
+    import PIL.ImageGrab
+    import io
+    PYAUTOGUI_AVAILABLE = True
+    pyautogui.PAUSE = 0.05
+    pyautogui.FAILSAFE = True
+except ImportError:
+    PYAUTOGUI_AVAILABLE = False
+
 if platform.system() == "Windows":
     try:
         import winreg
@@ -48,12 +59,14 @@ else:
 
 
 
-DISCORD_BOT_TOKEN  = "########################################################"
+DISCORD_BOT_TOKEN  = "##################################################################"
 
 OLLAMA_ENDPOINT    = "http://localhost:11434"
 OLLAMA_MODEL       = "qwen2.5-coder:7b"
 OLLAMA_TEMPERATURE = 0.1
 
+
+OLLAMA_VISION_MODEL = "llava:13b"
 
 BASE_FOLDER = os.path.join(os.getcwd(), "zentra_files")
 
@@ -61,7 +74,7 @@ MEMORY_DEPTH = 8
 
 RUN_TIMEOUT_SECONDS = 30
 
-ALLOWED_USER_IDS: list = [########################################################]
+ALLOWED_USER_IDS: list = [#########################################]
 
 
 MEMORY_FILE = os.path.join(os.getcwd(), "zentra_memory.json")
@@ -72,6 +85,13 @@ SEEN_EMAILS_FILE = os.path.join(os.getcwd(), "zentra_seen_emails.json")
 
 READ_FILE_MAX_CHARS = 12_000
 
+
+SCREENSHOT_FOLDER = os.path.join(os.getcwd(), "zentra_screenshots")
+
+MAX_SCREEN_ACTIONS = 20
+
+
+SCREEN_ACTION_DELAY = 0.4
 
 
 GOOGLE_CREDENTIALS_FILE = os.path.join(os.getcwd(), "credentials.json")
@@ -182,9 +202,11 @@ You have access to these actions:
   edit_file        — surgically edit an existing file using search-replace patches
   scaffold_project — generate an entire multi-file project in one shot
   open_app         — launch an application on the user's computer by name
+  close_app        — close/kill a running application by name or PID
   vscode_open      — open a file or folder in Visual Studio Code
   github_push      — git add, commit, and push inside a given folder
   system_stats     — show live system information (CPU, RAM, disk, GPU, network, top processes)
+  screen_action    — take a screenshot, analyse it, then perform mouse/keyboard actions on screen
   gmail_summary    — summarise unread emails (optional keyword/sender filter in 'app' field)
   gmail_send       — send or reply to an email (put details in 'reply' field)
   calendar_today   — show today's calendar events
@@ -196,41 +218,65 @@ You have access to these actions:
 
 ALWAYS return exactly this JSON shape — every field present, no extras, no omissions:
 {
-  "action":      "create_file",
-  "filename":    "example.py",
-  "folder":      "",
-  "content":     "",
-  "patches":     [],
-  "files":       [],
-  "app":         "",
-  "app_path":    "",
-  "run_args":    [],
-  "git_folder":  "",
-  "git_message": "",
-  "reply":       "Short friendly message."
+  "action":         "create_file",
+  "filename":       "example.py",
+  "folder":         "",
+  "content":        "",
+  "patches":        [],
+  "files":          [],
+  "app":            "",
+  "app_path":       "",
+  "run_args":       [],
+  "git_folder":     "",
+  "git_message":    "",
+  "screen_goal":    "",
+  "screen_actions": [],
+  "reply":          "Short friendly message."
 }
 
 Field rules:
-  action      — one of the sixteen actions listed above
-  filename    — full filename WITH correct extension (e.g. server.js, styles.css, main.go)
-                for read_file and edit_file: path relative to base files dir, or absolute
-  folder      — optional subfolder inside the base files directory, else ""
-  content     — complete file content for create_file/run_file; else ""
-  patches     — for edit_file: list of {"old": "exact text to find", "new": "replacement text"} objects
-                IMPORTANT: "old" must be the EXACT text from the file (whitespace included)
-  files       — for scaffold_project: list of {"filename": "...", "folder": "...", "content": "..."} objects
-                Each file must have complete, working content. Plan the full project before writing.
-  app         — for open_app: common app name (e.g. "steam", "chrome", "spotify")
-                for gmail_summary: optional filter keyword/sender (or "" for all unread)
-                for calendar_search: the keyword to search for
-  app_path    — for open_app: full executable path if known, else ""
-  run_args    — for run_file: list of extra CLI arguments, else []
-  git_folder  — for github_push: path to the git repo folder, else ""
-  git_message — for github_push: commit message string, else ""
-  reply       — short friendly message (ALWAYS required, never empty)
-                for calendar_add: the full natural language event description goes here
-                for calendar_delete: the event title and/or time to delete
-                for gmail_send: recipient, subject, and body (full details)
+  action          — one of the eighteen actions listed above
+  filename        — full filename WITH correct extension (e.g. server.js, styles.css, main.go)
+                    for read_file and edit_file: path relative to base files dir, or absolute
+  folder          — optional subfolder inside the base files directory, else ""
+  content         — complete file content for create_file/run_file; else ""
+  patches         — for edit_file: list of {"old": "exact text to find", "new": "replacement text"} objects
+                    IMPORTANT: "old" must be the EXACT text from the file (whitespace included)
+  files           — for scaffold_project: list of {"filename": "...", "folder": "...", "content": "..."} objects
+                    Each file must have complete, working content. Plan the full project before writing.
+  app             — for open_app: common app name (e.g. "steam", "chrome", "spotify")
+                    for close_app: name or PID of the app to close (e.g. "chrome", "notepad", "1234")
+                    for gmail_summary: optional filter keyword/sender (or "" for all unread)
+                    for calendar_search: the keyword to search for
+  app_path        — for open_app: full executable path if known, else ""
+                    for close_app: full executable name if known (e.g. "chrome.exe"), else ""
+  run_args        — for run_file: list of extra CLI arguments, else []
+  git_folder      — for github_push: path to the git repo folder, else ""
+  git_message     — for github_push: commit message string, else ""
+  screen_goal     — for screen_action: a clear description of what you want to achieve on screen
+                    e.g. "Open the Start menu and search for Notepad"
+                    e.g. "Click the red X button to close the dialog"
+                    e.g. "Type 'Hello World' in the text field and press Enter"
+  screen_actions  — for screen_action: optional list of pre-planned actions to execute
+                    Each action: {"type": "...", ...params...}
+                    Leave as [] to let ZENTRA auto-plan from the screenshot
+                    Action types and params:
+                      {"type": "click",       "x": 500, "y": 300}
+                      {"type": "double_click","x": 500, "y": 300}
+                      {"type": "right_click", "x": 500, "y": 300}
+                      {"type": "move",        "x": 500, "y": 300}
+                      {"type": "drag",        "x1": 100, "y1": 100, "x2": 400, "y2": 400}
+                      {"type": "scroll",      "x": 500, "y": 300, "clicks": 3}  (positive=up)
+                      {"type": "type",        "text": "Hello World"}
+                      {"type": "key",         "key": "enter"}  (any pyautogui key name)
+                      {"type": "hotkey",      "keys": ["ctrl", "c"]}
+                      {"type": "screenshot"}  (take mid-action screenshot for verification)
+                      {"type": "wait",        "seconds": 1.0}
+                      {"type": "find_and_click", "image": "button_name", "description": "the OK button"}
+  reply           — short friendly message (ALWAYS required, never empty)
+                    for calendar_add: the full natural language event description goes here
+                    for calendar_delete: the event title and/or time to delete
+                    for gmail_send: recipient, subject, and body (full details)
 
 Behaviour rules:
   - Use conversation history to understand follow-up requests
@@ -239,6 +285,9 @@ Behaviour rules:
   - For read_file, set filename to the path the user mentioned; ZENTRA will inject file contents
   - For edit_file, each patch "old" value must be unique text within the file
   - For scaffold_project, think through the full file structure first, then populate every file completely
+  - For close_app, use the most common process name (e.g. "chrome" → looks for "chrome.exe" / "chrome")
+  - For screen_action, describe the goal clearly; ZENTRA will take a screenshot, analyse it with vision
+    AI, then execute the appropriate actions automatically
   - For gmail_summary, use the app field for any filter the user mentioned (sender name, keyword, etc.)
   - For gmail_send, put all details (to, subject, body) in the reply field
   - For calendar_add/delete, put the complete original request in the reply field
@@ -355,6 +404,37 @@ def _ollama_raw_sync(system: str, user: str, max_tokens: int = 300) -> str:
     except Exception as exc:
         log.warning(f"_ollama_raw_sync failed: {exc}")
         return user[:200] + "…"
+
+
+def _ollama_vision_sync(image_b64: str, prompt: str, max_tokens: int = 1000) -> str:
+    """
+    Call the vision-capable Ollama model with a base64 image.
+    Returns the model's description / action plan.
+    """
+    payload = {
+        "model":      OLLAMA_VISION_MODEL,
+        "stream":     False,
+        "keep_alive": -1,
+        "options": {
+            "temperature": 0.1,
+            "num_predict": max_tokens,
+            "num_ctx":     8192,
+        },
+        "messages": [
+            {
+                "role":    "user",
+                "content": prompt,
+                "images":  [image_b64],
+            }
+        ],
+    }
+    try:
+        r = requests.post(f"{OLLAMA_ENDPOINT}/api/chat", json=payload, timeout=120)
+        r.raise_for_status()
+        return r.json()["message"]["content"].strip()
+    except Exception as exc:
+        log.warning(f"Vision model call failed: {exc}")
+        return ""
 
 
 async def query_ollama(prompt: str) -> str:
@@ -740,7 +820,7 @@ def handle_system_stats(_data: dict) -> str:
 
     lines: list[str] = []
 
-    # ── Header ────────────────────────────────────────────────
+
     boot_time  = datetime.fromtimestamp(psutil.boot_time())
     uptime_sec = time.time() - psutil.boot_time()
     lines.append(
@@ -750,7 +830,7 @@ def handle_system_stats(_data: dict) -> str:
         f"(booted {boot_time.strftime('%d %b %Y %H:%M')})"
     )
 
-    # ── CPU ───────────────────────────────────────────────────
+   
     cpu_pct_overall = psutil.cpu_percent(interval=0.5)
     cpu_pct_per     = psutil.cpu_percent(interval=None, percpu=True)
     cpu_freq        = psutil.cpu_freq()
@@ -774,7 +854,7 @@ def handle_system_stats(_data: dict) -> str:
         + "\n".join(core_bar_parts)
     )
 
-    # ── RAM ───────────────────────────────────────────────────
+
     ram = psutil.virtual_memory()
     swap = psutil.swap_memory()
     ram_bar_len = int(ram.percent / 10)
@@ -789,7 +869,7 @@ def handle_system_stats(_data: dict) -> str:
         + (f"  ({swap.percent:.1f}%)" if swap.total else "  (no swap)")
     )
 
-    # ── Disk ──────────────────────────────────────────────────
+
     disk_lines = ["**💾 Disk**"]
     try:
         io_before = psutil.disk_io_counters()
@@ -816,12 +896,12 @@ def handle_system_stats(_data: dict) -> str:
             disk_lines.append(f"  {part.mountpoint:<12} (permission denied)")
     lines.append("\n" + "\n".join(disk_lines))
 
-    # ── GPU ───────────────────────────────────────────────────
+
     gpu_str = _gpu_info_sync()
     if gpu_str:
         lines.append(f"\n**🎮 GPU**\n{gpu_str}")
 
-    # ── Network ───────────────────────────────────────────────
+
     try:
         net_before = psutil.net_io_counters(pernic=False)
         time.sleep(0.3)
@@ -853,7 +933,7 @@ def handle_system_stats(_data: dict) -> str:
     except Exception as exc:
         log.warning(f"Network stats error: {exc}")
 
-    # ── Top Processes ─────────────────────────────────────────
+
     try:
         procs = []
         for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info", "status"]):
@@ -891,6 +971,567 @@ def handle_system_stats(_data: dict) -> str:
         log.warning(f"Process stats error: {exc}")
 
     return "\n".join(lines)
+
+
+
+
+def _normalize_proc_name(name: str) -> list[str]:
+    """
+    Given a user-friendly name like "chrome", return a list of possible
+    process names to search for across Windows / macOS / Linux.
+    """
+    name = name.strip().lower()
+    # Strip .exe suffix for matching
+    base = name.removesuffix(".exe")
+
+    candidates = {name, base}
+
+    # Common aliases
+    _PROC_ALIASES: dict[str, list[str]] = {
+        "chrome":        ["chrome", "chrome.exe", "google chrome", "googlechrome"],
+        "firefox":       ["firefox", "firefox.exe"],
+        "edge":          ["msedge", "msedge.exe", "microsoft edge"],
+        "brave":         ["brave", "brave.exe", "brave-browser"],
+        "opera":         ["opera", "opera.exe"],
+        "discord":       ["discord", "discord.exe"],
+        "spotify":       ["spotify", "spotify.exe"],
+        "steam":         ["steam", "steam.exe"],
+        "notepad":       ["notepad", "notepad.exe"],
+        "notepad++":     ["notepad++", "notepad++.exe"],
+        "vscode":        ["code", "code.exe", "visual studio code"],
+        "vs code":       ["code", "code.exe"],
+        "code":          ["code", "code.exe"],
+        "explorer":      ["explorer", "explorer.exe"],
+        "obs":           ["obs64", "obs32", "obs.exe", "obs64.exe"],
+        "vlc":           ["vlc", "vlc.exe"],
+        "slack":         ["slack", "slack.exe"],
+        "teams":         ["teams", "teams.exe"],
+        "zoom":          ["zoom", "zoom.exe"],
+        "telegram":      ["telegram", "telegram.exe", "telegramdesktop"],
+        "word":          ["winword", "winword.exe"],
+        "excel":         ["excel", "excel.exe"],
+        "powerpoint":    ["powerpnt", "powerpnt.exe"],
+        "outlook":       ["outlook", "outlook.exe"],
+        "photoshop":     ["photoshop", "photoshop.exe"],
+        "blender":       ["blender", "blender.exe"],
+        "task manager":  ["taskmgr", "taskmgr.exe"],
+        "cmd":           ["cmd", "cmd.exe"],
+        "powershell":    ["powershell", "powershell.exe", "pwsh", "pwsh.exe"],
+        "terminal":      ["wt", "wt.exe", "terminal"],
+        "pycharm":       ["pycharm64", "pycharm64.exe", "pycharm"],
+        "intellij":      ["idea64", "idea64.exe"],
+        "postman":       ["postman", "postman.exe"],
+        "docker":        ["docker", "docker desktop", "dockerdesktop"],
+    }
+
+    if base in _PROC_ALIASES:
+        candidates.update(_PROC_ALIASES[base])
+    if name in _PROC_ALIASES:
+        candidates.update(_PROC_ALIASES[name])
+
+    return list(candidates)
+
+
+def _find_processes_by_name(name_or_pid: str) -> list:
+    """
+    Return a list of psutil.Process objects matching name_or_pid.
+    Accepts process name (fuzzy), exact exe name, or PID.
+    """
+    if not PSUTIL_AVAILABLE:
+        return []
+
+    # Try PID first
+    try:
+        pid = int(name_or_pid)
+        p   = psutil.Process(pid)
+        return [p]
+    except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+
+    candidates = _normalize_proc_name(name_or_pid)
+    matches    = []
+
+    for proc in psutil.process_iter(["pid", "name", "exe", "cmdline"]):
+        try:
+            proc_name = (proc.info.get("name") or "").lower()
+            proc_exe  = (proc.info.get("exe")  or "").lower()
+
+            for candidate in candidates:
+                if candidate in proc_name or candidate in proc_exe:
+                    matches.append(proc)
+                    break
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    return matches
+
+
+def handle_close_app(data: dict) -> str:
+    """
+    Close a running application gracefully (SIGTERM), then forcefully (SIGKILL)
+    if it doesn't exit within 3 seconds. Works on Windows, macOS, Linux.
+    """
+    if not PSUTIL_AVAILABLE:
+        return (
+            "❌ `psutil` is not installed — required for close_app.\n"
+            "Run: `pip install psutil` then restart ZENTRA."
+        )
+
+    app_name = (data.get("app") or data.get("app_path") or "").strip()
+    if not app_name:
+        return "❌ close_app: no app name or PID provided."
+
+    procs = _find_processes_by_name(app_name)
+
+    if not procs:
+        # Last resort on Windows: use taskkill
+        if platform.system() == "Windows":
+            # Try taskkill with the raw name
+            exe_name = app_name if app_name.endswith(".exe") else f"{app_name}.exe"
+            r = subprocess.run(
+                ["taskkill", "/F", "/IM", exe_name],
+                capture_output=True, text=True,
+            )
+            if r.returncode == 0:
+                return f"✅ Closed **{app_name}** via taskkill."
+            # Also try without .exe
+            r2 = subprocess.run(
+                ["taskkill", "/F", "/IM", app_name],
+                capture_output=True, text=True,
+            )
+            if r2.returncode == 0:
+                return f"✅ Closed **{app_name}** via taskkill."
+        return f"❌ No running process found matching **{app_name}**."
+
+    killed  = []
+    failed  = []
+    skipped = [] 
+
+    PROTECTED = {
+        "system", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
+        "lsass.exe", "services.exe", "svchost.exe", "dwm.exe",
+        "kernel_task", "launchd", "systemd", "init",
+    }
+
+    for proc in procs:
+        try:
+            pname = proc.name().lower()
+            if pname in PROTECTED:
+                skipped.append(f"{proc.name()} (PID {proc.pid}) — system process, skipped")
+                continue
+
+            log.info(f"Terminating {proc.name()} (PID {proc.pid})")
+            proc.terminate()
+
+            try:
+                proc.wait(timeout=3)
+                killed.append(f"{proc.name()} (PID {proc.pid})")
+            except psutil.TimeoutExpired:
+                log.warning(f"Process {proc.name()} didn't exit — killing forcefully")
+                proc.kill()
+                proc.wait(timeout=2)
+                killed.append(f"{proc.name()} (PID {proc.pid}) [force-killed]")
+
+        except psutil.NoSuchProcess:
+            killed.append(f"(already gone, PID {proc.pid})")
+        except psutil.AccessDenied:
+            failed.append(f"{proc.name()} (PID {proc.pid}) — access denied")
+        except Exception as exc:
+            failed.append(f"{proc.name()} (PID {proc.pid}) — {exc}")
+
+    parts = []
+    if killed:
+        parts.append(f"✅ Closed {len(killed)} process(es):\n" + "\n".join(f"  • {k}" for k in killed))
+    if skipped:
+        parts.append("⚠️ Skipped (protected):\n" + "\n".join(f"  • {s}" for s in skipped))
+    if failed:
+        parts.append("❌ Failed:\n" + "\n".join(f"  • {f}" for f in failed))
+
+    return "\n\n".join(parts) or "⚠️ Nothing was closed."
+
+
+
+
+def _take_screenshot_sync() -> tuple[str, str]:
+    """
+    Take a full-screen screenshot.
+    Returns (base64_png_string, saved_file_path).
+    """
+    Path(SCREENSHOT_FOLDER).mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    save_path = os.path.join(SCREENSHOT_FOLDER, f"screen_{timestamp}.png")
+
+    if PYAUTOGUI_AVAILABLE:
+        screenshot = pyautogui.screenshot()
+    else:
+        # Fallback: PIL ImageGrab (Windows/macOS only)
+        screenshot = PIL.ImageGrab.grab()
+
+    # Downscale for vision model if very large (keeps tokens manageable)
+    w, h = screenshot.size
+    max_dim = 1280
+    if w > max_dim or h > max_dim:
+        ratio = min(max_dim / w, max_dim / h)
+        screenshot = screenshot.resize(
+            (int(w * ratio), int(h * ratio)),
+            PIL.Image.LANCZOS,
+        )
+
+    screenshot.save(save_path, "PNG")
+
+    buf = io.BytesIO()
+    screenshot.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    log.info(f"Screenshot taken: {save_path} ({w}x{h} → {screenshot.size})")
+    return b64, save_path
+
+
+def _vision_plan_actions_sync(
+    image_b64: str,
+    goal: str,
+    screen_w: int,
+    screen_h: int,
+    previous_actions: list[dict] | None = None,
+) -> list[dict]:
+    """
+    Send a screenshot to the vision model and ask it to plan a sequence
+    of UI actions to achieve `goal`.
+    Returns a list of action dicts.
+    """
+    prev_str = ""
+    if previous_actions:
+        prev_str = (
+            "\n\nActions already performed:\n"
+            + json.dumps(previous_actions, indent=2)
+            + "\n\nLook at the current screenshot and decide what to do next."
+        )
+
+    prompt = f"""You are a precise screen automation assistant.
+Screen resolution: {screen_w}x{screen_h} pixels.
+Goal: {goal}{prev_str}
+
+Analyse this screenshot carefully. Return ONLY a raw JSON array of actions — no explanation, no markdown.
+
+Available action types:
+  {{"type":"click",        "x":<int>, "y":<int>}}
+  {{"type":"double_click", "x":<int>, "y":<int>}}
+  {{"type":"right_click",  "x":<int>, "y":<int>}}
+  {{"type":"move",         "x":<int>, "y":<int>}}
+  {{"type":"drag",         "x1":<int>,"y1":<int>,"x2":<int>,"y2":<int>}}
+  {{"type":"scroll",       "x":<int>, "y":<int>, "clicks":<int>}}
+  {{"type":"type",         "text":"<string>"}}
+  {{"type":"key",          "key":"<pyautogui key>"}}
+  {{"type":"hotkey",       "keys":["<key1>","<key2>"]}}
+  {{"type":"wait",         "seconds":<float>}}
+  {{"type":"screenshot"}}
+  {{"type":"done",         "message":"<what was accomplished>"}}
+
+Rules:
+- Be precise with coordinates — click the centre of UI elements
+- Use "screenshot" to verify state before and after important actions
+- Use "wait" after clicks that open menus/dialogs (0.3–1.0 seconds)
+- Use "key":"escape" to dismiss unintended popups
+- Include "done" as the last action with a description of what was accomplished
+- If the goal is already achieved in the screenshot, return [{{"type":"done","message":"Already done: <reason>"}}]
+- ONLY return the JSON array, nothing else"""
+
+    raw = _ollama_vision_sync(image_b64, prompt, max_tokens=800)
+    log.info(f"Vision plan (raw): {raw[:400]}")
+
+    # Extract JSON array
+    raw_clean = re.sub(r"<think>[\s\S]*?</think>", "", raw, flags=re.IGNORECASE).strip()
+    for text in [raw_clean, raw]:
+        # Try direct parse
+        try:
+            parsed = json.loads(text.strip())
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        # Try extracting array
+        m = re.search(r"\[[\s\S]*\]", text)
+        if m:
+            try:
+                parsed = json.loads(m.group(0))
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+    log.warning("Vision model returned no parsable action list.")
+    return [{"type": "done", "message": "Could not plan actions from screenshot."}]
+
+
+def _execute_screen_actions_sync(
+    actions: list[dict],
+    screen_w: int,
+    screen_h: int,
+    goal: str,
+    use_vision: bool = True,
+) -> dict:
+    """
+    Execute a list of screen actions.
+    Returns a dict with keys: actions_taken, screenshots, final_message, error
+    """
+    if not PYAUTOGUI_AVAILABLE:
+        return {
+            "actions_taken": [],
+            "screenshots":   [],
+            "final_message": "",
+            "error": (
+                "❌ `pyautogui` is not installed.\n"
+                "Run: `pip install pyautogui pillow` then restart ZENTRA."
+            ),
+        }
+
+    result = {
+        "actions_taken": [],
+        "screenshots":   [],
+        "final_message": "",
+        "error":         "",
+    }
+
+    def clamp(val: int, lo: int, hi: int) -> int:
+        return max(lo, min(hi, val))
+
+    executed_count = 0
+
+    for i, action in enumerate(actions[:MAX_SCREEN_ACTIONS]):
+        atype = action.get("type", "").lower()
+        log.info(f"Screen action [{i+1}]: {action}")
+
+        try:
+            if atype == "done":
+                result["final_message"] = action.get("message", "Task completed.")
+                result["actions_taken"].append({"type": "done", "message": result["final_message"]})
+                break
+
+            elif atype == "click":
+                x = clamp(int(action["x"]), 0, screen_w - 1)
+                y = clamp(int(action["y"]), 0, screen_h - 1)
+                pyautogui.click(x, y)
+                result["actions_taken"].append({"type": "click", "x": x, "y": y})
+                time.sleep(SCREEN_ACTION_DELAY)
+
+            elif atype == "double_click":
+                x = clamp(int(action["x"]), 0, screen_w - 1)
+                y = clamp(int(action["y"]), 0, screen_h - 1)
+                pyautogui.doubleClick(x, y)
+                result["actions_taken"].append({"type": "double_click", "x": x, "y": y})
+                time.sleep(SCREEN_ACTION_DELAY)
+
+            elif atype == "right_click":
+                x = clamp(int(action["x"]), 0, screen_w - 1)
+                y = clamp(int(action["y"]), 0, screen_h - 1)
+                pyautogui.rightClick(x, y)
+                result["actions_taken"].append({"type": "right_click", "x": x, "y": y})
+                time.sleep(SCREEN_ACTION_DELAY)
+
+            elif atype == "move":
+                x = clamp(int(action["x"]), 0, screen_w - 1)
+                y = clamp(int(action["y"]), 0, screen_h - 1)
+                pyautogui.moveTo(x, y, duration=0.2)
+                result["actions_taken"].append({"type": "move", "x": x, "y": y})
+
+            elif atype == "drag":
+                x1 = clamp(int(action["x1"]), 0, screen_w - 1)
+                y1 = clamp(int(action["y1"]), 0, screen_h - 1)
+                x2 = clamp(int(action["x2"]), 0, screen_w - 1)
+                y2 = clamp(int(action["y2"]), 0, screen_h - 1)
+                pyautogui.moveTo(x1, y1, duration=0.15)
+                pyautogui.dragTo(x2, y2, duration=0.4, button="left")
+                result["actions_taken"].append({"type": "drag", "x1": x1, "y1": y1, "x2": x2, "y2": y2})
+                time.sleep(SCREEN_ACTION_DELAY)
+
+            elif atype == "scroll":
+                x      = clamp(int(action.get("x", screen_w // 2)), 0, screen_w - 1)
+                y      = clamp(int(action.get("y", screen_h // 2)), 0, screen_h - 1)
+                clicks = int(action.get("clicks", 3))
+                pyautogui.scroll(clicks, x=x, y=y)
+                result["actions_taken"].append({"type": "scroll", "x": x, "y": y, "clicks": clicks})
+                time.sleep(0.2)
+
+            elif atype == "type":
+                text = str(action.get("text", ""))
+                pyautogui.typewrite(text, interval=0.03)
+                result["actions_taken"].append({"type": "type", "text": text})
+                time.sleep(0.1)
+
+            elif atype == "key":
+                key = str(action.get("key", ""))
+                if key:
+                    pyautogui.press(key)
+                    result["actions_taken"].append({"type": "key", "key": key})
+                    time.sleep(0.1)
+
+            elif atype == "hotkey":
+                keys = action.get("keys", [])
+                if keys:
+                    pyautogui.hotkey(*keys)
+                    result["actions_taken"].append({"type": "hotkey", "keys": keys})
+                    time.sleep(0.15)
+
+            elif atype == "wait":
+                secs = float(action.get("seconds", 0.5))
+                secs = min(secs, 10.0)  # Cap at 10s for safety
+                time.sleep(secs)
+                result["actions_taken"].append({"type": "wait", "seconds": secs})
+
+            elif atype == "screenshot":
+                b64, path = _take_screenshot_sync()
+                result["screenshots"].append(path)
+                result["actions_taken"].append({"type": "screenshot", "path": path})
+                log.info(f"Mid-action screenshot: {path}")
+
+                # If vision is available, re-evaluate after screenshot
+                if use_vision and i < len(actions) - 1:
+                    remaining_goal = f"Continue: {goal}"
+                    new_plan = _vision_plan_actions_sync(
+                        b64, remaining_goal, screen_w, screen_h,
+                        previous_actions=result["actions_taken"]
+                    )
+                    if new_plan:
+                        # Replace remaining actions with updated plan
+                        actions = result["actions_taken"] + new_plan
+                        log.info(f"Re-planned after screenshot: {len(new_plan)} new action(s)")
+
+            else:
+                log.warning(f"Unknown screen action type: {atype}")
+
+            executed_count += 1
+
+        except pyautogui.FailSafeException:
+            result["error"] = (
+                "🛑 PyAutoGUI failsafe triggered — mouse moved to screen corner.\n"
+                "Move mouse away from the corner to resume."
+            )
+            break
+        except Exception as exc:
+            log.error(f"Screen action error ({atype}): {exc}", exc_info=True)
+            result["error"] = f"❌ Action `{atype}` failed: {exc}"
+            break
+
+    if not result["final_message"] and not result["error"]:
+        result["final_message"] = f"Executed {executed_count} screen action(s)."
+
+    return result
+
+
+def handle_screen_action_sync(data: dict) -> str:
+    """
+    Full screen_action pipeline:
+    1. Take a screenshot
+    2. If no actions provided, use vision model to plan them
+    3. Execute the actions
+    4. Take a final screenshot for verification
+    5. Return a rich summary
+    """
+    if not PYAUTOGUI_AVAILABLE:
+        return (
+            "❌ Screen automation libraries not installed.\n"
+            "Run: `pip install pyautogui pillow` then restart ZENTRA.\n"
+            "On Linux you may also need: `sudo apt install python3-tk python3-dev`"
+        )
+
+    goal           = (data.get("screen_goal") or data.get("reply") or "").strip()
+    preset_actions = data.get("screen_actions", [])
+    if not isinstance(preset_actions, list):
+        preset_actions = []
+
+    if not goal and not preset_actions:
+        return "❌ screen_action: provide a goal or action list."
+
+    # Get screen dimensions
+    screen_w, screen_h = pyautogui.size()
+    log.info(f"Screen resolution: {screen_w}x{screen_h}")
+
+    # 1. Take initial screenshot
+    try:
+        b64, initial_path = _take_screenshot_sync()
+    except Exception as exc:
+        return f"❌ Could not take screenshot: {exc}"
+
+    # 2. Plan actions via vision model if none provided
+    actions = preset_actions
+    if not actions and goal:
+        log.info("No preset actions — planning via vision model...")
+        actions = _vision_plan_actions_sync(b64, goal, screen_w, screen_h)
+        if not actions:
+            return (
+                "❌ Vision model could not plan actions from the screenshot.\n"
+                f"Make sure `{OLLAMA_VISION_MODEL}` is pulled: "
+                f"`ollama pull {OLLAMA_VISION_MODEL}`"
+            )
+
+    log.info(f"Executing {len(actions)} screen action(s) for goal: {goal}")
+
+    # 3. Execute actions
+    exec_result = _execute_screen_actions_sync(
+        actions, screen_w, screen_h, goal, use_vision=(not preset_actions)
+    )
+
+    # 4. Take final screenshot
+    try:
+        _, final_path = _take_screenshot_sync()
+        exec_result["screenshots"].append(final_path)
+    except Exception:
+        pass
+
+    # 5. Build report
+    parts = []
+
+    if goal:
+        parts.append(f"🖥️ **Screen Action** — *{goal}*")
+    else:
+        parts.append("🖥️ **Screen Action**")
+
+    parts.append(f"📐 Screen: {screen_w}×{screen_h}")
+    parts.append(f"📸 Initial screenshot: `{initial_path}`")
+
+    if exec_result["actions_taken"]:
+        action_lines = []
+        for act in exec_result["actions_taken"]:
+            atype = act.get("type", "?")
+            if atype == "click":
+                action_lines.append(f"  🖱️ Click ({act['x']}, {act['y']})")
+            elif atype == "double_click":
+                action_lines.append(f"  🖱️ Double-click ({act['x']}, {act['y']})")
+            elif atype == "right_click":
+                action_lines.append(f"  🖱️ Right-click ({act['x']}, {act['y']})")
+            elif atype == "move":
+                action_lines.append(f"  🖱️ Move → ({act['x']}, {act['y']})")
+            elif atype == "drag":
+                action_lines.append(f"  🖱️ Drag ({act['x1']},{act['y1']}) → ({act['x2']},{act['y2']})")
+            elif atype == "scroll":
+                direction = "↑" if act["clicks"] > 0 else "↓"
+                action_lines.append(f"  🖱️ Scroll {direction} {abs(act['clicks'])}× at ({act['x']},{act['y']})")
+            elif atype == "type":
+                text_preview = act["text"][:40] + ("…" if len(act["text"]) > 40 else "")
+                action_lines.append(f"  ⌨️ Type: `{text_preview}`")
+            elif atype == "key":
+                action_lines.append(f"  ⌨️ Key: `{act['key']}`")
+            elif atype == "hotkey":
+                action_lines.append(f"  ⌨️ Hotkey: `{'+'.join(act['keys'])}`")
+            elif atype == "wait":
+                action_lines.append(f"  ⏱️ Wait {act['seconds']}s")
+            elif atype == "screenshot":
+                action_lines.append(f"  📸 Screenshot → `{act.get('path', '?')}`")
+            elif atype == "done":
+                action_lines.append(f"  ✅ Done: {act.get('message', '')}")
+        parts.append("**Actions executed:**\n" + "\n".join(action_lines))
+
+    if exec_result["screenshots"]:
+        last_ss = exec_result["screenshots"][-1]
+        parts.append(f"📸 Final screenshot: `{last_ss}`")
+
+    if exec_result["final_message"]:
+        parts.append(f"✅ **Result:** {exec_result['final_message']}")
+
+    if exec_result["error"]:
+        parts.append(exec_result["error"])
+
+    return "\n".join(parts)
 
 
 _APP_ALIASES: dict[str, str] = {
@@ -1454,18 +2095,18 @@ def _importance_score(sender: str, subject: str, snippet: str) -> int:
     combined = f"{sender} {subject} {snippet}".lower()
     score = 0
 
-    # Sender whitelist
+
     if any(s.lower() in combined for s in IMPORTANT_SENDERS):
         score += 2
 
-    # Keyword density
+
     keyword_hits = sum(1 for kw in IMPORTANT_KEYWORDS if kw in combined)
     if keyword_hits >= 2:
         score += 2
     elif keyword_hits == 1:
         score += 1
 
-    # AI triage (only if borderline — saves Ollama calls)
+
     if score == 1:
         answer = _ollama_raw_sync(
             "You are a strict email triage assistant. Reply only YES or NO.",
@@ -1483,7 +2124,7 @@ def _format_email_digest(emails: list[dict]) -> str:
     if not emails:
         return "📭 No unread emails in the last 24 hours."
 
-    # Sort: important first
+
     def email_sort_key(e):
         return _importance_score(e["sender"], e["subject"], e["snippet"])
 
@@ -1519,10 +2160,10 @@ def _format_email_digest(emails: list[dict]) -> str:
 
 def _fetch_email_search_sync(query: str, max_results: int = 10) -> list[dict]:
     """Search emails with a natural language query converted to Gmail search syntax."""
-    # Simple heuristic — convert common natural language to Gmail operators
+    
     gmail_q = query
     if "from:" not in query.lower() and "subject:" not in query.lower():
-        # Treat as a free-text search (Gmail handles it natively)
+  
         gmail_q = query
 
     try:
@@ -1557,7 +2198,6 @@ def _fetch_email_search_sync(query: str, max_results: int = 10) -> list[dict]:
         return []
 
 
-# ── Gmail Send ─────────────────────────────────────────────
 def _parse_send_request_sync(user_text: str) -> dict | None:
     """Use AI to extract recipient, subject, and body from natural language."""
     raw = _ollama_raw_sync(
@@ -1630,9 +2270,7 @@ async def handle_gmail_send(data: dict) -> str:
         return "❌ No email body found in your request."
     return await asyncio.to_thread(_send_email_sync, to, subject, body)
 
-# ============================================================
-# CALENDAR HELPERS — IMPROVED
-# ============================================================
+
 def _fmt_event_time(iso_str: str) -> str:
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
@@ -2172,12 +2810,16 @@ async def dispatch_action(data: dict) -> tuple[str, str]:
         result = combine(handle_scaffold_project(data))
     elif action == "open_app":
         result = combine(handle_open_app(data))
+    elif action == "close_app":
+        result = combine(handle_close_app(data))
     elif action == "vscode_open":
         result = combine(handle_vscode_open(data))
     elif action == "github_push":
         result = combine(handle_github_push(data))
     elif action == "system_stats":
         result = combine(await asyncio.to_thread(handle_system_stats, data))
+    elif action == "screen_action":
+        result = combine(await asyncio.to_thread(handle_screen_action_sync, data))
     elif action == "gmail_summary":
         result = combine(await handle_gmail_summary(data))
     elif action == "gmail_send":
@@ -2236,7 +2878,7 @@ async def process_message(user_id: int, user_input: str) -> str:
         log.error(f"Dispatch error: {exc}", exc_info=True)
         return f"⚠️ Action failed: {exc}"
 
-    # ── read_file follow-up ────────────────────────────────────
+
     if file_content:
         filename = parsed.get("filename", "file")
         followup_prompt = (
@@ -2273,20 +2915,24 @@ scheduler: ZentraScheduler | None = None
 async def on_ready() -> None:
     global scheduler
     log.info("=" * 60)
-    log.info("  ZENTRA v6.0 — AI Developer Assistant")
+    log.info("  ZENTRA v7.0 — AI Developer Assistant")
     log.info(f"  Bot user    : {client.user} (ID {client.user.id})")
     log.info(f"  Ollama      : {OLLAMA_ENDPOINT}  model={OLLAMA_MODEL}")
+    log.info(f"  Vision model: {OLLAMA_VISION_MODEL}")
     log.info(f"  Base folder : {BASE_FOLDER}")
+    log.info(f"  Screenshots : {SCREENSHOT_FOLDER}")
     log.info(f"  Memory depth: {MEMORY_DEPTH} exchanges per user")
     log.info(f"  Generation  : unlimited (num_predict=-1)")
     log.info(f"  Context     : 16384 tokens")
     log.info(f"  Actions     : create_file, run_file, read_file, edit_file,")
-    log.info(f"                scaffold_project, open_app, vscode_open,")
-    log.info(f"                github_push, system_stats,")
+    log.info(f"                scaffold_project, open_app, close_app,")
+    log.info(f"                vscode_open, github_push, system_stats,")
+    log.info(f"                screen_action,")
     log.info(f"                gmail_summary, gmail_send,")
     log.info(f"                calendar_today, calendar_week,")
     log.info(f"                calendar_add, calendar_delete, calendar_search, chat")
     log.info(f"  psutil      : {'✅ available' if PSUTIL_AVAILABLE else '❌ not installed (pip install psutil)'}")
+    log.info(f"  pyautogui   : {'✅ available' if PYAUTOGUI_AVAILABLE else '❌ not installed (pip install pyautogui pillow)'}")
     log.info(f"  Google APIs : {'✅ available' if GOOGLE_AVAILABLE else '❌ not installed'}")
     if GOOGLE_AVAILABLE:
         log.info(f"  Morning digest  : {MORNING_DIGEST_HOUR:02d}:{MORNING_DIGEST_MINUTE:02d} daily")
@@ -2302,6 +2948,7 @@ async def on_ready() -> None:
     load_memory()
     _load_seen_emails()
     Path(BASE_FOLDER).mkdir(parents=True, exist_ok=True)
+    Path(SCREENSHOT_FOLDER).mkdir(parents=True, exist_ok=True)
 
     scheduler = ZentraScheduler(client)
     scheduler.start()
@@ -2343,7 +2990,7 @@ async def on_message(message: discord.Message) -> None:
 
 
 if __name__ == "__main__":
-    if DISCORD_BOT_TOKEN == "PASTE_YOUR_DISCORD_BOT_TOKEN_HERE":
+    if DISCORD_BOT_TOKEN == "########################################################":
         print("=" * 60)
         print("  ❌  No Discord bot token found!")
         print()
@@ -2354,13 +3001,18 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     if not PSUTIL_AVAILABLE:
-        print("⚠️  psutil not found — system_stats will be unavailable.")
+        print("⚠️  psutil not found — system_stats and close_app will be unavailable.")
         print("    To enable: pip install psutil")
+
+    if not PYAUTOGUI_AVAILABLE:
+        print("⚠️  pyautogui not found — screen_action will be unavailable.")
+        print("    To enable: pip install pyautogui pillow")
+        print("    On Linux:  sudo apt install python3-tk python3-dev scrot")
 
     if not GOOGLE_AVAILABLE:
         print("⚠️  Google libraries not found — Gmail/Calendar features disabled.")
         print("    To enable: pip install google-auth google-auth-oauthlib")
         print("               google-auth-httplib2 google-api-python-client")
 
-    log.info("Starting ZENTRA v6.0…")
+    log.info("Starting ZENTRA v7.0…")
     client.run(DISCORD_BOT_TOKEN)
