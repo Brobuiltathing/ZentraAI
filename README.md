@@ -36,9 +36,21 @@ git sparse-checkout set ollama_discord
 git checkout
 ```
 
+<<<<<<< Updated upstream
 ```bash
 git clone --no-checkout https://github.com/Brobuiltathing/ZentraAI.git && cd ZentraAI && git sparse-checkout init --cone && git sparse-checkout set ollama_discord && git checkout
 ```
+=======
+git clone https://github.com/Brobuiltathing/ZentraAI.git
+
+cd ZentraAI
+
+git sparse-checkout init --cone
+
+git sparse-checkout set ollama_discord
+
+git checkout main
+>>>>>>> Stashed changes
 
 ### Pip Installations
 ```bash 
