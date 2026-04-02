@@ -22,12 +22,16 @@ Supports both **Ollama (local models)** and **API-based models** (Claude and Ope
 
 ---
 
-## Installing
+## Installing(Ollama Discord Git Only)
 
-Run the following command in your terminal:
+To download the Ollama Discord Git:
 
 ```bash 
-git clone https://github.com/Brobuiltathing/ZentraAI.git
+git clone --no-checkout https://github.com/Brobuiltathing/ZentraAI.git
+cd repo
+git sparse-checkout init --cone
+git sparse-checkout set ollama_discord
+git checkout
 ```
 ### Pip Installations
 ```bash 
