@@ -102,8 +102,9 @@ On the **Bot** tab, click **Reset Token** and copy the token shown.
 Paste this token into the config field in the program.
 
 ``` DISCORD_BOT_TOKEN = "#########################################" ```
+
  ^^This line looks like this^^
- 
+
 > ⚠️ Never share or commit your bot token — treat it like a password.
 
 ### 4. Invite the Bot to Your Server
@@ -160,7 +161,3 @@ ZentraAI/
 > ⚠️ Never commit `credentials.json` to a public repository. Add it to your `.gitignore` file.
 
 On first run, a browser window will open asking you to log in and authorise access. After completing this, a `token.json` file will be generated automatically and reused for future runs.
-
----
-
-## Repository Structure
