@@ -22,6 +22,32 @@ Supports both **Ollama (local models)** and **API-based models** (Claude and Ope
 
 ---
 
+<<<<<<< Updated upstream
+=======
+## Installing(Ollama Discord Git Only)
+
+To download the Ollama Discord Git:
+
+```bash 
+git clone --no-checkout https://github.com/Brobuiltathing/ZentraAI.git
+cd ZentraAI
+git sparse-checkout init --cone
+git sparse-checkout set ollama_discord
+git checkout
+```
+
+```bash
+git clone --no-checkout https://github.com/Brobuiltathing/ZentraAI.git && cd ZentraAI && git sparse-checkout init --cone && git sparse-checkout set ollama_discord && git checkout
+```
+
+### Pip Installations
+```bash 
+pip install discord.py requests psutil google-auth google-auth-oauthlib google-api-python-client
+```
+
+---
+
+>>>>>>> Stashed changes
 ## Integration Modes
 
 ### 1. Ollama + Discord
