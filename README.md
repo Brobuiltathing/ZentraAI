@@ -114,7 +114,7 @@ Click **Save Changes**.
 
 ### 3. Get Your Bot Token
 On the **Bot** tab, click **Reset Token** and copy the token shown.  
-Paste this token into the config field in the program.
+Paste this token into the config.py file in the program folder.
 
 ```bash 
 DISCORD_BOT_TOKEN = "#########################################" 
