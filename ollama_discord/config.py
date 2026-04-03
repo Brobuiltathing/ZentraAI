@@ -2,8 +2,14 @@ import os
 import sys
 import platform
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-DISCORD_BOT_TOKEN = "########################################################"
+
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
 OLLAMA_ENDPOINT    = "http://localhost:11434"
 OLLAMA_MODEL       = "qwen2.5-coder:7b"
@@ -17,7 +23,7 @@ MEMORY_FILE = os.path.join(os.getcwd(), "zentra_memory.json")
 
 RUN_TIMEOUT_SECONDS = 30
 
-ALLOWED_USER_IDS: list = [############################################]
+ALLOWED_USER_IDS: list = []  # Add your Discord user ID(s) here, e.g. [123456789012345678]
 
 SEEN_EMAILS_FILE = os.path.join(os.getcwd(), "zentra_seen_emails.json")
 
