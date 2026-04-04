@@ -8,7 +8,7 @@ from actions.files import (
 )
 from actions.apps import handle_open_app, handle_close_app, handle_vscode_open
 from actions.git import handle_github_push
-from actions.system import handle_system_stats, handle_shutdown_bot, handle_shutdown_pc
+from actions.system import handle_system_stats, handle_shutdown_pc
 from actions.screen import handle_screen_action_sync
 from actions.gmail import handle_gmail_summary, handle_gmail_send
 from actions.calendar import (
@@ -16,14 +16,17 @@ from actions.calendar import (
     handle_calendar_delete, handle_calendar_search,
 )
 from actions.chat import handle_chat
-
-
-_scheduler_ref = None
-
-
-def set_scheduler(s):
-    global _scheduler_ref
-    _scheduler_ref = s
+from actions.shell import handle_shell
+from actions.clipboard import handle_clipboard_read, handle_clipboard_analyze, handle_clipboard_fix
+from actions.context import handle_context_snapshot
+from actions.workflow import (
+    handle_workflow_run, handle_workflow_save, handle_workflow_list, handle_workflow_replay,
+)
+from actions.watcher import handle_watch_start, handle_watch_stop, handle_watch_list
+from actions.knowledge import handle_kb_add, handle_kb_search, handle_kb_list, handle_kb_clear
+from actions.export import handle_export_chat
+from actions.scheduler import handle_schedule_add, handle_schedule_list, handle_schedule_cancel
+from actions.plugins import handle_plugin_list, handle_plugin_run
 
 
 async def dispatch_action(data: dict) -> tuple[str, str]:
@@ -74,14 +77,65 @@ async def dispatch_action(data: dict) -> tuple[str, str]:
         result = combine(await handle_calendar_delete(data))
     elif action == "calendar_search":
         result = combine(await handle_calendar_search(data))
-    elif action == "shutdown_bot":
-        result = combine(await handle_shutdown_bot(data, scheduler=_scheduler_ref))
     elif action == "shutdown_pc":
         result = combine(handle_shutdown_pc(data))
+    elif action == "shell":
+        result = combine(await asyncio.to_thread(handle_shell, data))
+    elif action == "clipboard_read":
+        result = combine(await asyncio.to_thread(handle_clipboard_read, data))
+    elif action == "clipboard_analyze":
+        result = combine(await asyncio.to_thread(handle_clipboard_analyze, data))
+    elif action == "clipboard_fix":
+        result = combine(await asyncio.to_thread(handle_clipboard_fix, data))
+    elif action == "context_snapshot":
+        result = combine(await asyncio.to_thread(handle_context_snapshot, data))
+    elif action == "workflow_run":
+        result = combine(await handle_workflow_run(data, dispatch_fn=dispatch_action))
+    elif action == "workflow_save":
+        result = combine(await asyncio.to_thread(handle_workflow_save, data))
+    elif action == "workflow_list":
+        result = combine(handle_workflow_list(data))
+    elif action == "workflow_replay":
+        result = combine(await handle_workflow_replay(data, dispatch_fn=dispatch_action))
+    elif action == "watch_start":
+        result = combine(handle_watch_start(data))
+    elif action == "watch_stop":
+        result = combine(handle_watch_stop(data))
+    elif action == "watch_list":
+        result = combine(handle_watch_list(data))
+    elif action == "kb_add":
+        result = combine(await asyncio.to_thread(handle_kb_add, data))
+    elif action == "kb_search":
+        result = combine(await asyncio.to_thread(handle_kb_search, data))
+    elif action == "kb_list":
+        result = combine(handle_kb_list(data))
+    elif action == "kb_clear":
+        result = combine(handle_kb_clear(data))
+    elif action == "export_chat":
+        result = combine(handle_export_chat(data))
+    elif action == "schedule_add":
+        result = combine(await asyncio.to_thread(handle_schedule_add, data))
+    elif action == "schedule_list":
+        result = combine(handle_schedule_list(data))
+    elif action == "schedule_cancel":
+        result = combine(handle_schedule_cancel(data))
+    elif action == "plugin_list":
+        result = combine(handle_plugin_list(data))
+    elif action == "plugin_run":
+        result = combine(handle_plugin_run(data))
     elif action == "chat":
         result = handle_chat(data)
     else:
-        log.warning(f"Unknown action: {action}")
-        result = reply or f"Unknown action `{action}`."
+        plugin = None
+        from actions.plugins import get_plugin
+        plugin = get_plugin(action)
+        if plugin:
+            try:
+                result = combine(plugin["handler"](data))
+            except Exception as exc:
+                result = f"Plugin '{action}' failed: {exc}"
+        else:
+            log.warning(f"Unknown action: {action}")
+            result = reply or f"Unknown action `{action}`."
 
     return result, file_content

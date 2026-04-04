@@ -1,6 +1,6 @@
 requests
 python-dotenv
-rich
+discord.py
 pyperclip
 psutil
 pyautogui

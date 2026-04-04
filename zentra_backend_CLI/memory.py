@@ -42,8 +42,8 @@ def persist_memory() -> None:
         log.warning(f"Could not persist memory: {exc}")
 
 
-def build_prompt(new_message: str) -> str:
-    history = memory[USER_ID]
+def build_prompt(user_id: int, new_message: str) -> str:
+    history = memory[user_id]
     if not history:
         return new_message
     lines = ["CONVERSATION HISTORY (oldest first):"]
@@ -55,12 +55,12 @@ def build_prompt(new_message: str) -> str:
     return "\n".join(lines)
 
 
-def save_to_memory(user_msg: str, bot_reply_summary: str) -> None:
-    memory[USER_ID].append({"role": "user",      "content": user_msg})
-    memory[USER_ID].append({"role": "assistant",  "content": bot_reply_summary})
+def save_to_memory(user_id: int, user_msg: str, bot_reply_summary: str) -> None:
+    memory[user_id].append({"role": "user",      "content": user_msg})
+    memory[user_id].append({"role": "assistant",  "content": bot_reply_summary})
     persist_memory()
 
 
-def clear_memory() -> None:
-    memory[USER_ID].clear()
+def clear_memory(user_id: int = 0) -> None:
+    memory[user_id].clear()
     persist_memory()

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 from collections import defaultdict, deque
@@ -8,7 +7,8 @@ from logger import log
 
 
 memory: dict = defaultdict(lambda: deque(maxlen=MEMORY_DEPTH * 2))
-user_locks: dict = defaultdict(asyncio.Lock)
+
+USER_ID = 0
 
 
 def load_memory() -> None:
@@ -58,4 +58,9 @@ def build_prompt(user_id: int, new_message: str) -> str:
 def save_to_memory(user_id: int, user_msg: str, bot_reply_summary: str) -> None:
     memory[user_id].append({"role": "user",      "content": user_msg})
     memory[user_id].append({"role": "assistant",  "content": bot_reply_summary})
+    persist_memory()
+
+
+def clear_memory(user_id: int = 0) -> None:
+    memory[user_id].clear()
     persist_memory()
