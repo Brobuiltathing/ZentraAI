@@ -12,7 +12,7 @@ Everything local. Everything yours.
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### What you need
 
@@ -77,7 +77,7 @@ You should see the Zentra banner with your model info. Type anything and press e
 
 ---
 
-## 💡 Features
+## Features
 
 Talk to Zentra in natural language. It decides which action to take and executes it on your machine.
 
@@ -258,7 +258,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🤖 Ollama Setup
+## Ollama Setup
 
 Ollama runs AI models locally. No API keys, no cloud costs, no data leaving your machine.
 
@@ -530,7 +530,7 @@ After you approve, a `google_token.pickle` file is created in the project folder
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Zentra/
@@ -722,7 +722,7 @@ An example plugin (`example_hello.py`) is included to copy from.
 
 ---
 
-## 🔒 Security Notes
+## Security Notes
 
 
 | What                  | Rule                                                                              |
@@ -763,7 +763,7 @@ The `.gitignore` already covers all sensitive files.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 The monorepo makes contributing simple. Every feature is one file.
 
@@ -778,7 +778,3 @@ All three frontends get it instantly.
 **Add a plugin:** drop a `.py` file in `zentra/plugins/`. Zero core changes.
 
 **Fix a bug:** find the relevant file in `zentra/actions/` or `zentra/utils/`, fix it once. Every frontend benefits.
-
----
-
-Built by [@Brobuiltathing](https://github.com/Brobuiltathing)
