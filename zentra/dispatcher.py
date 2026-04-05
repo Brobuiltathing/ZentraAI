@@ -27,6 +27,13 @@ from zentra.actions.knowledge import handle_kb_add, handle_kb_search, handle_kb_
 from zentra.actions.export import handle_export_chat
 from zentra.actions.scheduler import handle_schedule_add, handle_schedule_list, handle_schedule_cancel
 from zentra.actions.plugins import handle_plugin_list, handle_plugin_run
+from zentra.actions.web import handle_web_search, handle_web_fetch
+from zentra.actions.arduino import (
+    handle_arduino_boards, handle_arduino_board_info, handle_arduino_ports,
+    handle_arduino_library, handle_arduino_generate, handle_arduino_compile,
+    handle_arduino_upload, handle_arduino_monitor_start, handle_arduino_monitor_read,
+    handle_arduino_monitor_stop, handle_arduino_send,
+)
 
 
 async def dispatch_action(data: dict) -> tuple[str, str]:
@@ -123,6 +130,32 @@ async def dispatch_action(data: dict) -> tuple[str, str]:
         result = combine(handle_plugin_list(data))
     elif action == "plugin_run":
         result = combine(handle_plugin_run(data))
+    elif action == "web_search":
+        result = combine(await asyncio.to_thread(handle_web_search, data))
+    elif action == "web_fetch":
+        result = combine(await asyncio.to_thread(handle_web_fetch, data))
+    elif action == "arduino_boards":
+        result = combine(handle_arduino_boards(data))
+    elif action == "arduino_board_info":
+        result = combine(handle_arduino_board_info(data))
+    elif action == "arduino_ports":
+        result = combine(handle_arduino_ports(data))
+    elif action == "arduino_library":
+        result = combine(handle_arduino_library(data))
+    elif action == "arduino_generate":
+        result = combine(await asyncio.to_thread(handle_arduino_generate, data))
+    elif action == "arduino_compile":
+        result = combine(await asyncio.to_thread(handle_arduino_compile, data))
+    elif action == "arduino_upload":
+        result = combine(await asyncio.to_thread(handle_arduino_upload, data))
+    elif action == "arduino_monitor_start":
+        result = combine(handle_arduino_monitor_start(data))
+    elif action == "arduino_monitor_read":
+        result = combine(handle_arduino_monitor_read(data))
+    elif action == "arduino_monitor_stop":
+        result = combine(handle_arduino_monitor_stop(data))
+    elif action == "arduino_send":
+        result = combine(handle_arduino_send(data))
     elif action == "chat":
         result = handle_chat(data)
     else:

@@ -111,6 +111,19 @@ You have access to these actions:
   schedule_cancel  — cancel a scheduled task
   plugin_list      — list loaded plugins
   plugin_run       — run a specific plugin by name
+  web_search       — search the web with DuckDuckGo and get an AI-summarized answer
+  web_fetch        — fetch a URL and summarize the page contents
+  arduino_boards   — list all supported Arduino/ESP boards
+  arduino_board_info — show detailed pin info for a specific board (put board name in 'app')
+  arduino_ports    — list connected USB/serial ports (find your Arduino)
+  arduino_library  — look up which library to use for a component (put component in 'app')
+  arduino_generate — generate a complete Arduino sketch from a description (put board in 'app', description in 'reply')
+  arduino_compile  — compile an Arduino sketch using arduino-cli (put sketch path in 'filename', board in 'reply')
+  arduino_upload   — upload sketch to board (put sketch in 'filename', port in 'app', board in 'reply')
+  arduino_monitor_start — open serial monitor (put port in 'app', baud rate in 'reply')
+  arduino_monitor_read  — read buffered serial output (put port in 'app')
+  arduino_monitor_stop  — close serial monitor (put port in 'app')
+  arduino_send     — send a message to the serial port (port in 'app', message in 'reply')
   chat             — plain conversational reply
 
 ALWAYS return exactly this JSON shape:
@@ -153,6 +166,12 @@ Behaviour rules:
   - For schedule_add, put the full scheduling request in reply
   - For schedule_cancel, put the task ID in app
   - For plugin_run, put the plugin name in app
+  - For web_search, put the search query in app or reply
+  - For web_fetch, put the URL in app, optional instruction in reply
+  - For arduino actions needing a board: use 'uno', 'nano', 'mega', 'esp32', 'esp8266', or 'pi_pico'
+  - For arduino_library, put component name in app (e.g. 'dht22', 'servo', 'oled')
+  - For arduino_generate, put board name in app, full description in reply
+  - For arduino serial monitor actions, put port in app (e.g. 'COM3' or '/dev/ttyUSB0')
   - Write complete working code, never pseudocode
   - NEVER output anything outside the JSON
   - Return ONLY raw JSON starting with { ending with }

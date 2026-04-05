@@ -5,10 +5,10 @@
 **Your local AI assistant that actually controls your PC.**
 
 Not another chatbot wrapper. Zentra runs on your machine, touches your files,  
-launches your apps, reads your screen, manages your email, and automates your workflow.  
-Everything local. Everything yours.
+launches your apps, reads your screen, searches the web, talks to your Arduino,  
+manages your email, and automates your workflow. Everything local. Everything yours.
 
-[Quickstart](#-quickstart) · [Features](#-features) · [Frontends](#-choose-your-frontend) · [Ollama](#-ollama-setup) · [Discord](#-discord-bot-setup) · [Google APIs](#-google-api-setup-gmail--calendar) · [Structure](#-project-structure) · [Plugins](#-writing-plugins) · [CLI Reference](#-cli-commands-reference) · [Troubleshooting](#%EF%B8%8F-troubleshooting)
+[Quickstart](#-quickstart) · [Features](#-features) · [Frontends](#-choose-your-frontend) · [Ollama](#-ollama-setup) · [Discord](#-discord-bot-setup) · [Google APIs](#-google-api-setup-gmail--calendar) · [Arduino](#-arduino-hardware-assistant) · [Structure](#-project-structure) · [Plugins](#-writing-plugins) · [CLI Reference](#-cli-commands-reference) · [Troubleshooting](#%EF%B8%8F-troubleshooting)
 
 ---
 
@@ -57,7 +57,7 @@ For the **terminal version** (fastest to get going):
 pip install requests python-dotenv rich pyperclip psutil
 ```
 
-For **all features including screen automation and Google integrations**:
+For **all features including screen automation, Arduino, and Google integrations**:
 
 ```bash
 pip install -r requirements.txt
@@ -105,6 +105,33 @@ Talk to Zentra in natural language. It decides which action to take and executes
 | "open my project in vscode"         | Launches VS Code with the folder              |
 
 
+### Web search + content fetching 🆕
+
+
+| You say                                                                                       | What happens                                                  |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| "search for the latest react 19 features"                                                     | Searches DuckDuckGo, AI-summarises top results with citations |
+| "what's happening with AI regulation in the EU"                                               | Current information with source links                         |
+| "fetch [https://arxiv.org/abs/2312.00752](https://arxiv.org/abs/2312.00752) and summarise it" | Downloads the page, strips clutter, extracts main points      |
+| "read this blog post and tell me the key takeaways"                                           | URL-based content analysis                                    |
+
+
+**No API key needed.** Uses DuckDuckGo's HTML endpoint and sends results to your local Ollama model for summarisation.
+
+### Arduino hardware assistant 🆕
+
+See the [Arduino section below](#-arduino-hardware-assistant) for the full walkthrough. Quick examples:
+
+
+| You say                                                 | What happens                                         |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| "what pins does the esp32 have"                         | Full pinout, I2C/SPI/UART pins, voltage warnings     |
+| "which library for dht22"                               | Tells you the exact library name and install command |
+| "what arduino ports are connected"                      | Lists USB serial devices, flags likely Arduinos      |
+| "generate an esp32 sketch that reads a dht22 on gpio 4" | Complete working .ino file with wiring table         |
+| "start serial monitor on COM3 at 115200"                | Opens live serial connection                         |
+
+
 ### Clipboard intelligence
 
 
@@ -118,119 +145,83 @@ Talk to Zentra in natural language. It decides which action to take and executes
 ### Screen and context awareness
 
 
-| You say                           | What happens                                                                                              |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| "what am I working on right now?" | Takes a screenshot, lists running processes, shows active window, gives you an AI productivity suggestion |
-| "click the submit button"         | Screenshots the screen, uses vision AI to locate the button, clicks it                                    |
-| "scroll down and click settings"  | Multi-step screen automation with re-evaluation after each action                                         |
+| You say                           | What happens                                                     |
+| --------------------------------- | ---------------------------------------------------------------- |
+| "what am I working on right now?" | Screenshots, lists processes, shows active window, AI suggestion |
+| "click the submit button"         | Vision AI finds and clicks UI elements                           |
 
 
 ### Workflow chains (multi-step automation)
 
 
-| You say                                                               | What happens                                                                |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| "run my tests, if they pass commit and push, then email me a summary" | Chains multiple actions with conditional logic (stop/skip/retry on failure) |
-| "save that workflow as deploy"                                        | Saves a named workflow you can replay later                                 |
-| "replay deploy"                                                       | Runs the saved workflow again                                               |
-| "list my workflows"                                                   | Shows all saved workflows                                                   |
+| You say                                                            | What happens                          |
+| ------------------------------------------------------------------ | ------------------------------------- |
+| "run tests, if they pass commit and push, then email me a summary" | Chains actions with conditional logic |
+| "save that workflow as deploy"                                     | Saves named workflow for replay       |
+| "replay deploy"                                                    | Runs the saved workflow again         |
 
 
 ### File watching
 
 
-| You say                                   | What happens                                         |
-| ----------------------------------------- | ---------------------------------------------------- |
-| "watch my Downloads folder for new files" | Starts real-time monitoring, notifies you on changes |
-| "stop watching Downloads"                 | Stops the watcher                                    |
-| "list my watchers"                        | Shows all active watchers                            |
+| You say                                   | What happens                              |
+| ----------------------------------------- | ----------------------------------------- |
+| "watch my Downloads folder for new files" | Real-time monitoring, notifies on changes |
 
 
 ### Local knowledge base
 
 
-| You say                                           | What happens                                                |
-| ------------------------------------------------- | ----------------------------------------------------------- |
-| "add all my notes to the knowledge base"          | Indexes your local text/code/config files with AI summaries |
-| "search my notes for that API key format I saved" | Searches indexed docs and answers using only your files     |
-| "list my knowledge base"                          | Shows all indexed documents                                 |
-| "clear the knowledge base"                        | Wipes the index                                             |
+| You say                                   | What happens                                    |
+| ----------------------------------------- | ----------------------------------------------- |
+| "add all my notes to the knowledge base"  | Indexes local documents with AI summaries       |
+| "search my notes for that API key format" | Searches indexed docs, answers using your files |
 
-
-Supported file types: `.txt`, `.md`, `.py`, `.js`, `.ts`, `.json`, `.yaml`, `.yml`, `.toml`, `.cfg`, `.ini`, `.html`, `.css`, `.csv`, `.log`, `.sh`, `.bat`, `.ps1`, `.env`, `.xml`, `.rst`, `.tex`
 
 ### Scheduled tasks and reminders
 
 
-| You say                                   | What happens                      |
-| ----------------------------------------- | --------------------------------- |
-| "remind me at 5pm to push my code"        | One-time reminder                 |
-| "every Monday at 9am summarise my emails" | Recurring weekly task             |
-| "list my scheduled tasks"                 | Shows all pending tasks with IDs  |
-| "cancel task_1"                           | Cancels a specific scheduled task |
+| You say                                   | What happens          |
+| ----------------------------------------- | --------------------- |
+| "remind me at 5pm to push my code"        | One-time reminder     |
+| "every Monday at 9am summarise my emails" | Recurring weekly task |
 
 
-Supports one-time, hourly, daily, and weekly schedules.
-
-### Gmail integration
+### Gmail + Calendar
 
 
 | You say                                                                                  | What happens                             |
 | ---------------------------------------------------------------------------------------- | ---------------------------------------- |
 | "summarise my unread emails"                                                             | AI-ranked digest with importance scoring |
-| "check for emails from Jake"                                                             | Filtered search by sender or keyword     |
-| "send an email to [jake@example.com](mailto:jake@example.com) saying the report is done" | Composes and sends the email             |
+| "send an email to [jake@example.com](mailto:jake@example.com) saying the report is done" | Composes and sends                       |
+| "what's on my calendar today?"                                                           | Shows events with conflict detection     |
+| "add a meeting with Sarah on Friday at 2pm"                                              | Creates event from natural language      |
 
-
-The Discord version also includes automatic email polling that DMs you when critical emails arrive, and a daily morning briefing digest.
-
-Requires [Google API setup](#-google-api-setup-gmail--calendar).
-
-### Google Calendar integration
-
-
-| You say                                     | What happens                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------- |
-| "what's on my calendar today?"              | Shows events with times, locations, meeting links, and conflict detection |
-| "show my week"                              | Full weekly agenda grouped by day                                         |
-| "add a meeting with Sarah on Friday at 2pm" | Creates the event with natural language parsing                           |
-| "delete the dentist appointment"            | Finds and deletes by name                                                 |
-| "search my calendar for standup"            | Searches upcoming events by keyword                                       |
-
-
-The Discord version includes automatic event reminders 30 minutes before each meeting.
 
 Requires [Google API setup](#-google-api-setup-gmail--calendar).
 
 ### Other features
 
-
-| You say                                | What happens                              |
-| -------------------------------------- | ----------------------------------------- |
-| "commit and push my code"              | `git add .`, `commit`, `push` in one shot |
-| "export this conversation as markdown" | Saves chat history to a .md or .txt file  |
-| "list my plugins"                      | Shows loaded custom plugins               |
-
-
-### Plugin system
-
-Drop a Python file in `zentra/plugins/` and it becomes a new action. No core code changes needed. See [Writing Plugins](#-writing-plugins).
+- **Git push** - `git add .`, `commit`, `push` in one shot
+- **Export chat** - as markdown or plain text
+- **Plugin system** - drop a .py file, new action available
+- **Shell commands** - direct terminal execution
 
 ---
 
-## 🖥️ Choose your frontend
+## Choose your frontend
 
-All three frontends use the exact same backend. Same 40+ actions, same features. Pick your interface.
-
-
-| Command                 | Interface                                               | Best for                                |
-| ----------------------- | ------------------------------------------------------- | --------------------------------------- |
-| `python run_cli.py`     | Terminal with rich formatting, spinners, slash commands | Fast local use, developers              |
-| `python run_discord.py` | Discord bot, interact via DMs                           | Remote control from phone or another PC |
-| `python run_gui.py`     | Desktop app with sidebar, chat bubbles, settings panel  | Visual preference, non-terminal users   |
+All three frontends share the same backend. Pick your interface.
 
 
-### Install dependencies per frontend
+| Command                 | Interface                                 | Best for                     |
+| ----------------------- | ----------------------------------------- | ---------------------------- |
+| `python run_cli.py`     | Terminal, rich formatting, slash commands | Fast local use, developers   |
+| `python run_discord.py` | Discord bot via DMs                       | Remote control from phone/PC |
+| `python run_gui.py`     | Desktop app                               | Visual preference            |
+
+
+### Frontend dependencies
 
 **Terminal only:**
 
@@ -250,7 +241,7 @@ pip install requests python-dotenv discord.py pyperclip psutil
 pip install requests python-dotenv PySide6 pyperclip psutil
 ```
 
-**Everything (all frontends + all optional features):**
+**Everything:**
 
 ```bash
 pip install -r requirements.txt
@@ -260,273 +251,253 @@ pip install -r requirements.txt
 
 ## Ollama Setup
 
-Ollama runs AI models locally. No API keys, no cloud costs, no data leaving your machine.
+Ollama runs AI models locally. No API keys, no cloud costs.
 
-### Install Ollama
+**Install:** [ollama.com/download](https://ollama.com/download)
 
-Download from [ollama.com/download](https://ollama.com/download) and run the installer.
-
-### Pull your models
-
-Open a terminal and run:
+**Pull your models:**
 
 ```bash
 ollama pull qwen2.5-coder:7b
-```
-
-For vision/screen features:
-
-```bash
 ollama pull llava:13b
 ```
 
-### Verify it's working
+**Verify:**
 
 ```bash
 ollama list
 ```
 
-You should see your downloaded models listed.
-
-### Make sure Ollama is running
-
-- **Windows/Mac**: Ollama runs as a background service after installation. Check your system tray.
-- **Linux**: Start it manually with `ollama serve`
-
 ### Recommended models
 
 
-| Model             | Download                        | Size   | Best for                                     |
-| ----------------- | ------------------------------- | ------ | -------------------------------------------- |
-| qwen2.5-coder:7b  | `ollama pull qwen2.5-coder:7b`  | 4.7 GB | Coding and general tasks (default)           |
-| qwen2.5-coder:14b | `ollama pull qwen2.5-coder:14b` | 9 GB   | Better reasoning, needs 16GB+ RAM            |
-| deepseek-r1:14b   | `ollama pull deepseek-r1:14b`   | 9 GB   | Complex multi-step reasoning                 |
-| llava:13b         | `ollama pull llava:13b`         | 8 GB   | Vision, screen automation, context snapshots |
-| llama3.2:3b       | `ollama pull llama3.2:3b`       | 2 GB   | Lightweight, low-spec machines               |
+| Model             | Size   | Best for                          |
+| ----------------- | ------ | --------------------------------- |
+| qwen2.5-coder:7b  | 4.7 GB | Coding + general tasks (default)  |
+| qwen2.5-coder:14b | 9 GB   | Better reasoning, needs 16GB+ RAM |
+| deepseek-r1:14b   | 9 GB   | Complex multi-step reasoning      |
+| llava:13b         | 8 GB   | Vision, screen automation         |
+| llama3.2:3b       | 2 GB   | Lightweight, low-spec machines    |
 
 
-### Switching models
+**Switch models anytime:**
 
-You can change the model anytime without restarting:
-
-- **CLI**: type `/model deepseek-r1:14b`
-- **Discord or GUI**: ask Zentra "switch to deepseek-r1:14b"
-- **Permanently**: edit `OLLAMA_MODEL` in `zentra/config.py`
+- CLI: type `/model deepseek-r1:14b`
+- Discord/GUI: ask "switch to deepseek-r1:14b"
 
 ---
 
-## 💬 Discord Bot Setup
-
-This section walks you through creating a Discord bot from scratch and connecting it to Zentra. If you've never made a Discord bot before, follow every step.
+## Discord Bot Setup
 
 ### 1. Create a Discord Application
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click the **New Application** button in the top right
-3. Give it a name (e.g. `ZentraAI`) and click **Create**
-4. You'll land on the General Information page. You can optionally add a description and icon here.
+2. Click **New Application**, give it a name, click **Create**
 
-### 2. Create the Bot User
+### 2. Create the Bot
 
-1. In the left sidebar, click **Bot**
-2. Click **Add Bot**, then confirm with **Yes, do it!**
-3. You now have a bot user attached to your application
+1. Click **Bot** in the left sidebar
+2. Click **Add Bot**, confirm with **Yes, do it!**
 
-### 3. Enable Required Intents
+### 3. Enable Intents
 
-Still on the **Bot** page, scroll down to **Privileged Gateway Intents** and turn on:
+Scroll to **Privileged Gateway Intents** and enable:
 
-- **Message Content Intent** (required, lets the bot read what you type)
-- **Server Members Intent** (optional but useful)
+- **Message Content Intent**
+- **Server Members Intent** (optional)
 
-Click **Save Changes** at the bottom.
+Click **Save Changes**.
 
-### 4. Get Your Bot Token
+### 4. Get Your Token
 
-Still on the **Bot** page:
+Click **Reset Token** and copy it.
 
-1. Click **Reset Token**
-2. Confirm, then **copy the token** that appears
+### 5. Add to Zentra
 
-This token is like a password for your bot. Keep it secret.
-
-> If you accidentally leak your token, go back here and reset it immediately.
-
-### 5. Add the Token to Zentra
-
-**Option A** - Edit the config file directly:
-
-Open `zentra/config.py` and find this line near the top:
+Edit `zentra/config.py`:
 
 ```python
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+DISCORD_BOT_TOKEN = "your_token_here"
+ALLOWED_USER_IDS = [your_discord_user_id]
 ```
 
-Replace `YOUR_BOT_TOKEN_HERE` with your actual token:
-
-```python
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "MTIzNDU2Nzg5MDEy...")
-```
-
-**Option B** - Use a `.env` file (recommended, keeps secrets out of code):
-
-Create a file called `.env` in the project root (same folder as `run_discord.py`):
+Or create `.env`:
 
 ```
-DISCORD_BOT_TOKEN=MTIzNDU2Nzg5MDEy...
+DISCORD_BOT_TOKEN=your_token_here
 ```
 
-The `.gitignore` already prevents `.env` from being committed.
+> Find your user ID: enable Developer Mode in Discord settings, right-click your name, Copy User ID.
 
-### 6. Add Your User ID to the Whitelist
+### 6. Invite the Bot
 
-This ensures only you can talk to the bot.
+1. Go to **OAuth2 > URL Generator**
+2. Scopes: `bot`
+3. Permissions: `Send Messages`, `Read Message History`
+4. Open the generated URL and select your server
 
-First, get your Discord user ID:
-
-1. Open Discord
-2. Go to **Settings > Advanced** and enable **Developer Mode**
-3. Close settings
-4. Right-click your own username anywhere in Discord
-5. Click **Copy User ID**
-
-Then open `zentra/config.py` and find:
-
-```python
-ALLOWED_USER_IDS: list = []
-```
-
-Add your ID:
-
-```python
-ALLOWED_USER_IDS: list = [123456789012345678]
-```
-
-Replace `123456789012345678` with your actual ID.
-
-If you leave the list empty, anyone who can DM the bot can use it.
-
-### 7. Invite the Bot to Your Server
-
-1. In the Developer Portal, go to **OAuth2 > URL Generator** in the left sidebar
-2. Under **Scopes**, check `bot`
-3. Under **Bot Permissions**, check:
-  - `Send Messages`
-  - `Read Message History`
-4. Copy the generated URL at the bottom of the page
-5. Paste it into your browser
-6. Select your server from the dropdown and click **Authorize**
-
-The bot will now appear in your server's member list (it will show as offline until you start the program).
-
-### 8. Install Dependencies and Run
+### 7. Run
 
 ```bash
-pip install requests python-dotenv discord.py pyperclip psutil
 python run_discord.py
 ```
 
-You should see logs like:
+DM the bot to start. Discord version has exclusive background features:
 
-```
-ZENTRA v9.0 -- Discord Bot
-Bot user    : ZentraAI#1234 (ID 9876543210)
-Ready -- waiting for DMs
-```
-
-### 9. Start Using It
-
-Open Discord and **send a Direct Message** to your bot. Don't type in a server channel, use DMs.
-
-Type anything, like:
-
-- "hello"
-- "show my system stats"
-- "create a python hello world file"
-
-The bot will respond in the DM.
-
-### Discord-exclusive features
-
-The Discord version has background tasks that the CLI and GUI versions don't:
-
-- **Morning digest** - Every day at 8:00 AM, Zentra DMs you a briefing with unread emails and today's calendar (requires Google setup)
-- **Email polling** - Checks for important emails every 5 minutes and DMs you immediately if something critical arrives
-- **Event reminders** - DMs you 30 minutes before each calendar event with the meeting link
-- **File watcher alerts** - If you have active file watchers, changes get sent to your DMs
-- **Scheduled task execution** - Reminders and recurring tasks fire as DMs
-
-These run automatically in the background as long as the bot is online.
+- Morning digest at 8am (email + calendar)
+- Critical email alerts every 5 min
+- Event reminders 30 min before meetings
+- File watcher notifications
 
 ---
 
-## 📧 Google API Setup (Gmail + Calendar)
+## Google API Setup (Gmail + Calendar)
 
-Gmail and Calendar features are optional. Skip this entire section if you don't need them. Zentra will work fine without them and just disable those specific actions.
+Optional - skip if you don't need email/calendar.
 
-### 1. Create a Google Cloud Project
+### 1. Create Google Cloud Project
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
-2. If you've never used Google Cloud, you may need to agree to terms of service
-3. Click the project dropdown at the top of the page and click **New Project**
-4. Give it a name (e.g. `ZentraAI`) and click **Create**
-5. Make sure your new project is selected in the dropdown at the top
+[console.cloud.google.com](https://console.cloud.google.com/) → **New Project**
 
-### 2. Enable the APIs
+### 2. Enable APIs
 
-1. In the left sidebar, go to **APIs & Services > Library**
-2. Search for **Gmail API** and click on it, then click **Enable**
-3. Go back to the Library
-4. Search for **Google Calendar API** and click on it, then click **Enable**
+**APIs & Services > Library** → enable:
 
-### 3. Configure the OAuth Consent Screen
+- Gmail API
+- Google Calendar API
 
-1. Go to **APIs & Services > OAuth consent screen**
-2. Select **External** and click **Create**
-3. Fill in:
-  - **App name**: ZentraAI (or anything)
-  - **User support email**: your Gmail address
-  - **Developer contact email**: your Gmail address
-4. Click **Save and Continue**
-5. On the **Scopes** page, click **Save and Continue** (skip for now)
-6. On the **Test users** page, click **Add Users**
-7. Enter your Gmail address and click **Save**
-8. Click **Save and Continue**, then **Back to Dashboard**
+### 3. OAuth Consent Screen
 
-### 4. Create OAuth 2.0 Credentials
+**APIs & Services > OAuth consent screen** → External → add yourself as test user
 
-1. Go to **APIs & Services > Credentials**
-2. Click **Create Credentials** at the top, select **OAuth client ID**
-3. For **Application type**, select **Desktop app**
-4. Give it a name (e.g. `ZentraDesktop`) and click **Create**
-5. On the confirmation screen, click **Download JSON**
+### 4. Create Credentials
 
-### 5. Place the Credentials File
+**APIs & Services > Credentials > Create Credentials > OAuth client ID** → Desktop app → Download JSON
 
-1. Rename the downloaded file to exactly `credentials.json`
-2. Move it to the Zentra project root (the same folder as `run_cli.py`)
+### 5. Place File
 
-```
-Zentra/
-├── credentials.json   <-- put it here
-├── run_cli.py
-├── run_discord.py
-└── ...
-```
+Rename to `credentials.json` and put in the project root.
 
-### 6. Install the Libraries
+### 6. Install
 
 ```bash
 pip install google-auth google-auth-oauthlib google-api-python-client
 ```
 
-### 7. First Run Authentication
+First run opens a browser for authentication. A `google_token.pickle` is saved and reused.
 
-The first time you use a Gmail or Calendar command, a browser window will open asking you to log in to your Google account and grant access.
+---
 
-After you approve, a `google_token.pickle` file is created in the project folder. This stores your authentication so you don't have to log in again.
+## 🔧 Arduino Hardware Assistant
 
-> **Never commit `credentials.json` or `google_token.pickle` to Git.** Both are already in the `.gitignore`.
+Zentra has a dedicated Arduino/ESP toolkit for hardware projects. Not just compile-and-upload - it solves the real friction points.
+
+### What it does
+
+**Board database** - Detailed specs for 6 boards built in (Arduino Uno, Nano, Mega, ESP32, ESP8266, Raspberry Pi Pico). Every pin, every interface, every warning, no Googling.
+
+**Library lookup** - 30+ common components mapped to the correct libraries. Ask "which library for mpu6050" and get the exact library name, include statement, and install instructions.
+
+**Port detection** - Finds your board on USB automatically, flags likely Arduinos by their USB-to-serial chipset (CH340, CP210, FTDI, Silicon Labs).
+
+**Code generation** - Generates complete .ino sketches from natural language, using the correct pins for your specific board. Includes wiring table, library list, and notes.
+
+**Compile + Upload** - Wraps arduino-cli with the right FQBN for your chosen board.
+
+**Live serial monitor** - Opens a connection in a background thread, buffers 200 lines, lets you read output and send commands back without alt-tabbing.
+
+### Setup
+
+Install pyserial:
+
+```bash
+pip install pyserial
+```
+
+For real compile/upload (optional, everything else works without it):
+
+1. Install arduino-cli: [arduino.github.io/arduino-cli/latest/installation](https://arduino.github.io/arduino-cli/latest/installation/)
+2. Install the core for your board:
+  ```bash
+   arduino-cli core install arduino:avr      # Uno, Nano, Mega
+   arduino-cli core install esp32:esp32      # ESP32
+   arduino-cli core install esp8266:esp8266  # ESP8266
+   arduino-cli core install rp2040:rp2040    # Pi Pico
+  ```
+
+### Example workflow
+
+Building a temperature logger with an ESP32 and DHT22:
+
+```
+You: what pins does the esp32 have
+Zentra: [shows full ESP32 pinout with I2C, SPI, ADC, avoid_pins warnings, etc]
+
+You: which library for dht22
+Zentra: DHT22 - temperature + humidity
+        Library: DHT sensor library
+        Include: #include <DHT.h>
+        Install via Arduino IDE Library Manager...
+
+You: generate an esp32 sketch that reads a dht22 on gpio 4 and prints to serial every 2 seconds
+Zentra: Arduino Sketch Generated
+        Target: ESP32 DevKit
+        Saved to: ./zentra_files/arduino/esp32_dht22.ino
+        
+        Wiring:
+        DHT22 VCC  -> ESP32 3.3V
+        DHT22 GND  -> ESP32 GND
+        DHT22 DATA -> ESP32 GPIO 4
+        (10K pullup resistor between VCC and DATA)
+        
+        Libraries needed: DHT sensor library, Adafruit Unified Sensor
+        [shows full working code]
+
+You: what ports are connected
+Zentra: Detected Ports
+        COM4 [ARDUINO?]
+          USB-SERIAL CH340
+          Manufacturer: wch.cn
+          VID:PID = 1A86:7523
+
+You: compile esp32_dht22.ino for esp32
+Zentra: Compiled successfully for esp32:esp32:esp32
+        Sketch uses 238,765 bytes (18%) of program storage...
+
+You: upload it to COM4 for esp32
+Zentra: Uploaded to COM4 (esp32:esp32:esp32)
+
+You: start monitor on COM4 at 115200
+Zentra: Monitoring COM4 @ 115200 baud
+
+You: read the serial output
+Zentra: Serial output from COM4 (last 5 lines)
+        [14:32:01] Temperature: 22.4 C  Humidity: 45.2%
+        [14:32:03] Temperature: 22.4 C  Humidity: 45.1%
+        [14:32:05] Temperature: 22.5 C  Humidity: 45.3%
+```
+
+### Supported boards
+
+
+| Key       | Board             |
+| --------- | ----------------- |
+| `uno`     | Arduino Uno R3    |
+| `nano`    | Arduino Nano      |
+| `mega`    | Arduino Mega 2560 |
+| `esp32`   | ESP32 DevKit      |
+| `esp8266` | ESP8266 NodeMCU   |
+| `pi_pico` | Raspberry Pi Pico |
+
+
+### Component library (30+ built in)
+
+Sensors: `dht11`, `dht22`, `ds18b20`, `bmp280`, `bme280`, `mpu6050`, `hc-sr04`, `ultrasonic`  
+Displays: `lcd`, `oled`, `ssd1306`, `tft`  
+Storage: `sd`, `rtc`, `ds3231`  
+Motors: `servo`, `stepper`, `28byj-48`  
+Wireless: `nrf24`, `wifi`, `bluetooth`, `ble`, `esp-now`  
+Other: `rfid`, `mfrc522`, `neopixel`, `ws2812`, `ir`, `keypad`, `buzzer`, `joystick`, `potentiometer`, `relay`, `button`, `led`
 
 ---
 
@@ -539,152 +510,99 @@ Zentra/
 ├── run_discord.py           <- type: python run_discord.py
 ├── run_gui.py               <- type: python run_gui.py
 │
-├── zentra/                  <- THE SHARED BACKEND
-│   ├── config.py               all settings, tokens, model names, system prompt
-│   ├── engine.py               processes a user message end-to-end
-│   ├── dispatcher.py           reads the AI's chosen action, calls the right handler
-│   ├── memory.py               stores and loads conversation history
-│   ├── ollama.py               sends prompts to Ollama and gets responses
-│   ├── parser.py               extracts JSON from the model's raw output
-│   ├── logger.py               logging config
+├── zentra/                  <- SHARED BACKEND (all frontends use this)
+│   ├── config.py
+│   ├── engine.py
+│   ├── dispatcher.py
+│   ├── memory.py
+│   ├── ollama.py
+│   ├── parser.py
+│   ├── logger.py
 │   │
-│   ├── actions/                every feature is one file here
-│   │   ├── files.py               create / read / edit / run / scaffold files
-│   │   ├── apps.py                open / close apps (80+ built-in aliases)
-│   │   ├── shell.py               run any terminal command directly
-│   │   ├── git.py                 git add + commit + push
-│   │   ├── system.py              system stats, shutdown / restart / sleep PC
-│   │   ├── screen.py              screenshot + vision AI + mouse/keyboard control
-│   │   ├── clipboard.py           read / analyse / fix clipboard contents
-│   │   ├── context.py             screen + processes + active window + suggestion
-│   │   ├── workflow.py            multi-step automation with conditionals
-│   │   ├── watcher.py             real-time folder monitoring
-│   │   ├── knowledge.py           local document indexing and search
-│   │   ├── scheduler.py           reminders and recurring tasks
-│   │   ├── gmail.py               email summary and send
-│   │   ├── calendar.py            calendar view / add / delete / search
-│   │   ├── export.py              export chat as markdown or text
-│   │   ├── plugins.py             loads custom plugins from the plugins folder
-│   │   └── chat.py                plain conversational responses
+│   ├── actions/             <- one file per feature
+│   │   ├── files.py
+│   │   ├── apps.py
+│   │   ├── shell.py
+│   │   ├── git.py
+│   │   ├── system.py
+│   │   ├── screen.py
+│   │   ├── clipboard.py
+│   │   ├── context.py
+│   │   ├── workflow.py
+│   │   ├── watcher.py
+│   │   ├── knowledge.py
+│   │   ├── scheduler.py
+│   │   ├── gmail.py
+│   │   ├── calendar.py
+│   │   ├── export.py
+│   │   ├── plugins.py
+│   │   ├── web.py           <- web search + fetch
+│   │   ├── arduino.py       <- arduino hardware assistant
+│   │   └── chat.py
 │   │
 │   ├── utils/
-│   │   ├── __init__.py            file path resolution, write helpers
-│   │   ├── formatting.py          byte formatting, uptime, GPU info
-│   │   ├── google_auth.py         Google OAuth flow, service builders, retry logic
-│   │   └── seen_emails.py         tracks processed email IDs
+│   │   ├── __init__.py
+│   │   ├── formatting.py
+│   │   ├── google_auth.py
+│   │   └── seen_emails.py
 │   │
-│   └── plugins/                 your custom plugins go here
-│       └── example_hello.py       working example to copy from
+│   └── plugins/             <- drop custom .py plugins here
+│       └── example_hello.py
 │
-├── frontends/               <- UI WRAPPERS (no business logic, just interface)
-│   ├── cli/
-│   │   └── main.py              terminal: rich panels, slash commands, spinners
-│   ├── discord/
-│   │   └── main.py              discord: bot events, typing indicator, scheduler
+├── frontends/               <- UI WRAPPERS (no business logic)
+│   ├── cli/main.py
+│   ├── discord/main.py
 │   └── gui/
-│       ├── main.py              app entry point
-│       ├── main_window.py       window layout, sidebar, input handling
-│       ├── chat_widget.py       message bubbles, welcome screen, quick actions
-│       ├── settings_panel.py    live settings editor
-│       ├── theme.py             dark theme stylesheet
-│       └── worker.py            background thread for AI calls
 │
-├── gui_beta/                <- older standalone GUI version (kept for reference)
-│
-├── requirements.txt         <- pip install -r requirements.txt for everything
-├── .env.example             <- template for your .env file
-├── .gitignore               <- keeps secrets and generated files out of git
+├── gui_beta/                <- older standalone GUI
+├── requirements.txt
+├── .env.example
+├── .gitignore
 └── LICENSE
 ```
 
-### How to add a new feature
+### Adding a new feature
 
-This is the whole point of the structure. You edit **one place** and all three frontends get it.
+1. Create `zentra/actions/your_feature.py`
+2. Add one `elif` in `zentra/dispatcher.py`
+3. Add the action to the system prompt in `zentra/config.py`
 
-1. Create `zentra/actions/your_feature.py` with a `handle_your_feature(data: dict) -> str` function
-2. Open `zentra/dispatcher.py`, import your function, add one `elif action == "your_feature":` line
-3. Open `zentra/config.py`, add `your_feature` to the system prompt's action list so the AI knows about it
-
-Done. CLI, Discord, and GUI all support the new action immediately.
+All three frontends get it instantly.
 
 ---
 
-## ⚙️ Configuration
-
-### Config file
-
-All settings are in `zentra/config.py`:
+## CLI Commands Reference
 
 
-| Setting               | Default                  | What it controls                |
-| --------------------- | ------------------------ | ------------------------------- |
-| `OLLAMA_ENDPOINT`     | `http://localhost:11434` | Where Ollama is running         |
-| `OLLAMA_MODEL`        | `qwen2.5-coder:7b`       | Model for chat/actions          |
-| `OLLAMA_VISION_MODEL` | `llava:13b`              | Model for screen/vision         |
-| `BASE_FOLDER`         | `./zentra_files`         | Where generated files are saved |
-| `MEMORY_DEPTH`        | `8`                      | Conversation turns to remember  |
-| `RUN_TIMEOUT_SECONDS` | `30`                     | Max seconds for code execution  |
-| `DISCORD_BOT_TOKEN`   | `YOUR_BOT_TOKEN_HERE`    | Your Discord bot token          |
-| `ALLOWED_USER_IDS`    | `[]`                     | Discord user whitelist          |
+| Command              | Action                          |
+| -------------------- | ------------------------------- |
+| `/help`              | Show all commands               |
+| `/clear`             | Wipe conversation memory        |
+| `/status`            | Check Ollama connection         |
+| `/model <n>`         | Switch model                    |
+| `/clipboard`         | Read clipboard contents         |
+| `/fix`               | Fix clipboard, copy back        |
+| `/snapshot`          | Screen + processes + suggestion |
+| `/export md`         | Export chat as markdown         |
+| `/export txt`        | Export chat as plain text       |
+| `/kb list`           | Show knowledge base             |
+| `/kb add <path>`     | Index files/folder              |
+| `/kb search <query>` | Search KB                       |
+| `/schedule`          | List scheduled tasks            |
+| `/watch`             | List file watchers              |
+| `/workflows`         | List saved workflows            |
+| `/plugins`           | List loaded plugins             |
+| `/reload`            | Hot-reload plugins              |
+| `/quit`              | Exit                            |
 
 
-### Environment variables
-
-Instead of editing `config.py`, you can create a `.env` file in the project root:
-
-```
-OLLAMA_ENDPOINT=http://localhost:11434
-OLLAMA_MODEL=qwen2.5-coder:7b
-OLLAMA_VISION_MODEL=llava:13b
-DISCORD_BOT_TOKEN=your_token_here
-```
-
-The `.env` file is already in `.gitignore` so it won't be committed.
-
-Requires `python-dotenv` (included in all install commands above).
+Everything else goes to the AI.
 
 ---
 
-## ⌨️ CLI Commands Reference
+## Writing Plugins
 
-Direct slash commands in the terminal version (bypass the AI for instant execution):
-
-
-| Command              | What it does                                                    |
-| -------------------- | --------------------------------------------------------------- |
-| `/help`              | Show all commands                                               |
-| `/clear`             | Wipe conversation memory and start fresh                        |
-| `/status`            | Check Ollama connection, list available models                  |
-| `/model <name>`      | Switch model without restarting (e.g. `/model deepseek-r1:14b`) |
-| `/clipboard`         | Read and display current clipboard contents                     |
-| `/fix`               | Fix code/text on clipboard, copy corrected version back         |
-| `/fix <instruction>` | Fix with specific instruction (e.g. `/fix add type hints`)      |
-| `/snapshot`          | Context snapshot: screenshot + processes + AI suggestion        |
-| `/export md`         | Export conversation as markdown file                            |
-| `/export txt`        | Export conversation as plain text file                          |
-| `/kb list`           | Show all indexed knowledge base documents                       |
-| `/kb add <path>`     | Index a file or folder into the knowledge base                  |
-| `/kb search <query>` | Search the knowledge base                                       |
-| `/kb clear`          | Wipe the entire knowledge base index                            |
-| `/schedule`          | List all scheduled tasks and reminders                          |
-| `/watch`             | List all active file watchers                                   |
-| `/workflows`         | List all saved workflow chains                                  |
-| `/plugins`           | List all loaded plugins                                         |
-| `/reload`            | Hot-reload plugins without restarting Zentra                    |
-| `/quit`              | Exit Zentra                                                     |
-
-
-Anything that doesn't start with `/` gets sent to the AI as a natural language request.
-
----
-
-## 🔌 Writing Plugins
-
-Plugins let you add custom actions without touching any core code.
-
-### Create a plugin
-
-Make a new `.py` file in `zentra/plugins/`:
+Drop a `.py` file in `zentra/plugins/`:
 
 ```python
 PLUGIN_NAME = "weather"
@@ -701,80 +619,76 @@ def handle(data: dict) -> str:
         return f"Failed: {exc}"
 ```
 
-### How it works
+Auto-loads on startup. Use `/reload` to pick up new plugins without restarting.
 
-- `PLUGIN_NAME` becomes the action name the AI can call
-- `PLUGIN_DESCRIPTION` is shown in plugin listings
-- `handle(data)` receives the AI's parsed JSON with fields like `reply`, `app`, `filename`, `content`
-- Return a string with your result
+---
 
-### Loading
+## Configuration
 
-Plugins load automatically when Zentra starts. In the CLI, use `/reload` to pick up new plugins without restarting.
+Edit `zentra/config.py` or create a `.env` file:
 
-### Using plugins
+```
+OLLAMA_ENDPOINT=http://localhost:11434
+OLLAMA_MODEL=qwen2.5-coder:7b
+OLLAMA_VISION_MODEL=llava:13b
+DISCORD_BOT_TOKEN=your_token_here
+```
 
-Ask the AI: "run the weather plugin for Tokyo"
 
-Or in the CLI: `/plugins` to see what's loaded.
+| Setting               | Default          | Controls                      |
+| --------------------- | ---------------- | ----------------------------- |
+| `OLLAMA_MODEL`        | qwen2.5-coder:7b | Chat model                    |
+| `OLLAMA_VISION_MODEL` | llava:13b        | Vision model                  |
+| `BASE_FOLDER`         | ./zentra_files   | Where files are saved         |
+| `MEMORY_DEPTH`        | 8                | Conversation turns remembered |
+| `ALLOWED_USER_IDS`    | []               | Discord whitelist             |
 
-An example plugin (`example_hello.py`) is included to copy from.
 
 ---
 
 ## Security Notes
 
-
-| What                  | Rule                                                                              |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `credentials.json`    | Never commit. Contains your Google OAuth client secret.                           |
-| `google_token.pickle` | Never commit. Contains your authenticated Google session.                         |
-| `.env`                | Never commit. Contains your Discord token and other secrets.                      |
-| `DISCORD_BOT_TOKEN`   | Treat like a password. Reset immediately if leaked.                               |
-| `ALLOWED_USER_IDS`    | Set this to restrict who can control your PC via Discord.                         |
-| Shell commands        | Zentra runs real commands on your machine. Be careful what you ask.               |
-| Data privacy          | All AI runs locally via Ollama. Gmail/Calendar are the only external connections. |
-
-
-The `.gitignore` already covers all sensitive files.
+- Never commit `credentials.json`, `google_token.pickle`, or `.env`
+- All AI runs locally via Ollama (web_search uses DuckDuckGo, no data stored)
+- Shell commands run real commands on your machine
+- Discord access is whitelisted via `ALLOWED_USER_IDS`
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 
-| Problem                                            | Solution                                                                                                                  |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| "Cannot connect to Ollama"                         | Ollama isn't running. Start with `ollama serve` (Linux) or check your system tray (Windows/Mac).                          |
-| "Model not found"                                  | Pull it first: `ollama pull qwen2.5-coder:7b`                                                                             |
-| `ModuleNotFoundError: No module named 'discord'`   | Run: `pip install discord.py`                                                                                             |
-| `ModuleNotFoundError: No module named 'rich'`      | Run: `pip install rich`                                                                                                   |
-| `ModuleNotFoundError: No module named 'PySide6'`   | Run: `pip install PySide6`                                                                                                |
-| `ModuleNotFoundError: No module named 'pyperclip'` | Run: `pip install pyperclip`                                                                                              |
-| Calendar circular import error                     | Make sure there's no file called `calendar.py` in the project root. The action file must stay inside `zentra/actions/`.   |
-| Screen automation not working                      | `pip install pyautogui Pillow`. On Linux also: `sudo apt install python3-tk python3-dev scrot`                            |
-| Clipboard not working on Linux                     | `sudo apt install xclip`                                                                                                  |
-| Gmail/Calendar shows as disabled                   | `pip install google-auth google-auth-oauthlib google-api-python-client` and place `credentials.json` in the project root. |
-| Bot is online but not responding                   | Make sure you're DMing the bot, not typing in a server channel. Check that your user ID is in `ALLOWED_USER_IDS`.         |
-| Bot shows "Not authorised"                         | Add your Discord user ID to `ALLOWED_USER_IDS` in `zentra/config.py`.                                                     |
-| Google auth browser doesn't open                   | Make sure `credentials.json` is in the project root (same folder as `run_cli.py`).                                        |
-| Token expired / auth error                         | Delete `google_token.pickle` and restart. It will re-authenticate.                                                        |
+| Problem                      | Fix                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| "Cannot connect to Ollama"   | Start Ollama: `ollama serve` or check system tray                                        |
+| "Model not found"            | `ollama pull qwen2.5-coder:7b`                                                           |
+| `No module named 'discord'`  | `pip install discord.py`                                                                 |
+| `No module named 'rich'`     | `pip install rich`                                                                       |
+| `No module named 'pyserial'` | `pip install pyserial`                                                                   |
+| `No module named 'PySide6'`  | `pip install PySide6`                                                                    |
+| Calendar circular import     | No `calendar.py` in project root, only in `zentra/actions/`                              |
+| Screen automation fails      | `pip install pyautogui Pillow` (Linux: `sudo apt install python3-tk scrot`)              |
+| Clipboard not working        | `pip install pyperclip` (Linux: `sudo apt install xclip`)                                |
+| Gmail/Calendar disabled      | Install google libs + add `credentials.json` to root                                     |
+| arduino-cli not found        | [Install from official docs](https://arduino.github.io/arduino-cli/latest/installation/) |
+| Bot shows "Not authorised"   | Add your Discord user ID to `ALLOWED_USER_IDS`                                           |
+| GUI won't launch             | `pip install PySide6`                                                                    |
 
 
 ---
 
 ## Contributing
 
-The monorepo makes contributing simple. Every feature is one file.
+The monorepo structure makes contributing simple.
 
-**Add a new action:**
+**Add an action:**
 
 1. Create `zentra/actions/your_feature.py`
-2. Add an `elif` in `zentra/dispatcher.py`
-3. Add the action to the system prompt in `zentra/config.py`
+2. Add `elif` in `zentra/dispatcher.py`
+3. Add to system prompt in `zentra/config.py`
 
-All three frontends get it instantly.
+**Add a plugin:** drop a `.py` file in `zentra/plugins/`. No core changes.
 
-**Add a plugin:** drop a `.py` file in `zentra/plugins/`. Zero core changes.
+---
 
-**Fix a bug:** find the relevant file in `zentra/actions/` or `zentra/utils/`, fix it once. Every frontend benefits.
+Built by [@Brobuiltathing & @Planeman653](https://github.com/Brobuiltathing)
